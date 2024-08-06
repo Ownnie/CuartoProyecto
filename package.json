@@ -12,6 +12,7 @@
   "dependencies": {
     "@headlessui/react": "^2.1.2",
     "@heroicons/react": "^2.1.5",
+    "cuartoproyecto": "file:",
     "react": "^18.2.0",
     "react-calendar": "^5.0.0",
     "react-date-picker": "^11.0.0",
