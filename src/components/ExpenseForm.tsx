@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { DraftExpenses, Value } from "../types"
 import { ChangeEvent } from "react"
 
@@ -12,7 +12,7 @@ import { useBudget } from "../hooks/useBudget"
 
 export default function ExpenseForm() {
 
-    const { dispatch } = useBudget()
+    const { dispatch, state, remainingBudget } = useBudget()
 
     const [expense, setExpense] = useState<DraftExpenses>({
         expenseName: '',
@@ -22,6 +22,7 @@ export default function ExpenseForm() {
     })
 
     const [error, setError] = useState<string | null>(null)
+    const [previousAmount, setPreviousAmount] = useState(0)
 
     const handleChange = (e: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLSelectElement>) => {
         const { name, value } = e.target
@@ -42,94 +43,124 @@ export default function ExpenseForm() {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
 
-        if (Object.values(expense)) {
+        //validar
+        if (Object.values(expense).includes('')) {
             setError('Todos los campos son obligatorios')
             return
         }
 
-        dispatch({ type: 'add-expense', payload: { expense } })
+        //validar que no me pase del limite
+
+        if ((expense.amount - previousAmount) > remainingBudget) {
+            setError('Ha superado su presupuesto')
+            return
+        }
+
+        // Agregar o actualizar el gasto
+        if (state.editingId) {
+            dispatch({ type: 'update-expense', payload: { expense: { id: state.editingId, ...expense } } })
+        } else {
+            dispatch({ type: 'add-expense', payload: { expense } })
+        }
+
+        //reiniciar el state
+        setExpense({
+            expenseName: '',
+            amount: 0,
+            category: '',
+            date: new Date()
+        })
     }
-}
 
-return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
-        <legend
-            className="uppercase text-center text-2xl font-black border-b-4 py-2 border-blue-500"
-        >Nuevo Gasto</legend>
+    useEffect(() => {
+        if (state.editingId) {
+            const editingExpense = state.expenses.filter(currentExpense => currentExpense.id === state.editingId)
+            [0]
+            setExpense(editingExpense)
+            setPreviousAmount(editingExpense.amount)
+        }
+    }, [state.editingId])
 
-        {error && <ErrorMensaje>{error}</ErrorMensaje>}
 
-        <div className="flex flex-col gap-2">
-            <label htmlFor="expenseName"
-                className="text-xl"
-            >Nombre Gasto:</label>
+    return (
+        <form className="space-y-5" onSubmit={handleSubmit}>
+            <legend
+                className="uppercase text-center text-2xl font-black border-b-4 py-2 border-blue-500"
+            >{state.editingId ? 'Guardar Cambios' : 'Nuevo Gasto'}</legend>
 
-            <input type="text"
-                id="expenseName"
-                placeholder="Añande el nombre del gasto"
-                className="p-2 border border-gray-300 rounded-lg"
-                name="expenseName"
-                value={expense.expenseName}
-                onChange={handleChange}
+            {error && <ErrorMensaje>{error}</ErrorMensaje>}
+
+            <div className="flex flex-col gap-2">
+                <label htmlFor="expenseName"
+                    className="text-xl"
+                >Nombre Gasto:</label>
+
+                <input type="text"
+                    id="expenseName"
+                    placeholder="Añande el nombre del gasto"
+                    className="p-2 border border-gray-300 rounded-lg"
+                    name="expenseName"
+                    value={expense.expenseName}
+                    onChange={handleChange}
+                />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <label htmlFor="amount"
+                    className="text-xl"
+                >Cantidad Gasto:</label>
+
+                <input type="number"
+                    id="amount"
+                    placeholder="Añande la cantidad del gasto Ej.300"
+                    className="p-2 border border-gray-300 rounded-lg"
+                    name="amount"
+                    value={expense.amount}
+                    onChange={handleChange}
+                />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <label htmlFor="category"
+                    className="text-xl"
+                >Categoria:</label>
+
+                <select
+                    id="category"
+                    className="p-2 border border-gray-300 rounded-lg"
+                    name="category"
+                    value={expense.category}
+                    onChange={handleChange}
+                >
+                    <option value=""> -- Selecione -- </option>
+                    {categories.map(category => (
+                        <option
+                            value={category.id}
+                            key={category.id}
+                        >
+                            {category.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <label htmlFor="date"
+                    className="text-xl"
+                >Fecha Gasto:</label>
+
+                <DatePicker
+                    className="p-2 border border-gray-300 rounded-lg"
+                    value={expense.date}
+                    onChange={handleChangeDate}
+                />
+            </div>
+
+
+            <input type="submit"
+                className="bg-blue-600 cursor-pointer w-full p-2 text-white uppercase font-bold rounded-lg"
+                value={state.editingId ? 'Guardar Cambios' : 'Registrar Gasto'}
             />
-        </div>
-
-        <div className="flex flex-col gap-2">
-            <label htmlFor="amount"
-                className="text-xl"
-            >Cantidad Gasto:</label>
-
-            <input type="number"
-                id="amount"
-                placeholder="Añande la cantidad del gasto Ej.300"
-                className="p-2 border border-gray-300 rounded-lg"
-                name="amount"
-                value={expense.amount}
-                onChange={handleChange}
-            />
-        </div>
-
-        <div className="flex flex-col gap-2">
-            <label htmlFor="category"
-                className="text-xl"
-            >Categoria:</label>
-
-            <select
-                id="category"
-                className="p-2 border border-gray-300 rounded-lg"
-                name="category"
-                value={expense.category}
-                onChange={handleChange}
-            >
-                <option value=""> -- Selecione -- </option>
-                {categories.map(category => (
-                    <option
-                        value={category.id}
-                        key={category.id}
-                    >
-                        {category.name}
-                    </option>
-                ))}
-            </select>
-        </div>
-
-        <div className="flex flex-col gap-2">
-            <label htmlFor="date"
-                className="text-xl"
-            >Fecha Gasto:</label>
-
-            <DatePicker
-                className="p-2 border border-gray-300 rounded-lg"
-                value={expense.date}
-                onChange={handleChangeDate}
-            />
-        </div>
-
-
-        <input type="submit"
-            className="bg-blue-600 cursor-pointer w-full p-2 text-white uppercase font-bold rounded-lg"
-            value={'Registrar Gasto'}
-        />
-    </form>
-)
+        </form>
+    )
 }
